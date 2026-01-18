@@ -68,6 +68,7 @@
         .download-btn { background: linear-gradient(135deg, #00c853, #007a33) !important; }
         .locked-btn { background: #555 !important; cursor: pointer !important; }
 
+        /* ভেরিফিকেশন পপ-আপ ডিজাইন */
         #verify-overlay { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.96); z-index: 10000; flex-direction: column; 
@@ -92,7 +93,7 @@
         <div class="verify-box">
             <div id="timer-display" class="timer-circle spinning">10</div>
             <h2 id="verify-title" style="color: var(--primary); font-weight: 900; margin-bottom: 10px;">বিজ্ঞাপন যাচাই...</h2>
-            <p id="verify-msg" style="font-size: 15px; color: #555; line-height: 1.6;">১০ সেকেন্ড অ্যাডের লিঙ্কে অবস্থান করুন। টাইমার শেষ হলে অটোমেটিক ধাপ সম্পন্ন হবে।</p>
+            <p id="verify-msg" style="font-size: 15px; color: #555; line-height: 1.6;">অ্যাডের লিঙ্কে গিয়ে ১০ সেকেন্ড অপেক্ষা করুন।</p>
         </div>
     </div>
 
@@ -117,7 +118,8 @@
 
         let allVideos = {};
         let currentCategory = "All";
-        let countdownActive = false; // উইন্ডো ট্র্যাকিং ভেরিয়েবল
+        let countdownInterval = null;
+        let isTrackingStarted = false;
 
         db.ref('videos').on('value', (snap) => { allVideos = snap.val() || {}; renderUI(); });
 
@@ -175,9 +177,15 @@
                 return;
             }
 
-            document.getElementById('verify-overlay').style.display = 'flex';
-            startAutoCountdown(v_id, step);
-            setTimeout(() => { tg.openLink(ads[step]); }, 800);
+            // ২ সেকেন্ড ডিলে দিয়ে অ্যাড ওপেন এবং ট্র্যাকিং শুরু
+            tg.openLink(ads[step]);
+            isTrackingStarted = false;
+
+            setTimeout(() => {
+                document.getElementById('verify-overlay').style.display = 'flex';
+                isTrackingStarted = true;
+                startAutoCountdown(v_id, step);
+            }, 2000); 
         }
 
         function startAutoCountdown(vid, currentStep) {
@@ -185,32 +193,36 @@
             const msgDisplay = document.getElementById('verify-msg');
             const timerCircle = document.querySelector('.timer-circle');
             let timeLeft = REQUIRED_SEC;
+            
             timerDisplay.innerText = timeLeft;
-            countdownActive = true;
+            if (countdownInterval) clearInterval(countdownInterval);
 
-            const interval = setInterval(() => {
-                // Focus Tracking Logic
-                if (document.hidden) {
-                    // ইউজার অন্য ট্যাবে আছে (অ্যাড দেখছে)
+            countdownInterval = setInterval(() => {
+                // চেক: ইউজার কি অ্যাডের ট্যাবে আছে (পর্দার আড়ালে)?
+                if (document.visibilityState === 'hidden' && isTrackingStarted) {
                     timeLeft--;
                     timerDisplay.innerText = timeLeft;
-                    msgDisplay.innerText = "ঠিক আছে, ১০ সেকেন্ড অ্যাডের লিঙ্কে অবস্থান করুন।";
+                    msgDisplay.innerText = "ঠিক আছে, বিজ্ঞাপনে অবস্থান করুন...";
                     msgDisplay.style.color = "#555";
                     timerCircle.classList.add('spinning');
-                } else {
-                    // ইউজার এই ট্যাবে ফিরে এসেছে
-                    msgDisplay.innerText = "⚠️ দয়া করে অ্যাডের লিঙ্কে ফিরে যান! নতুবা টাইমার চলবে না।";
-                    msgDisplay.style.color = "red";
+                } else if (isTrackingStarted) {
+                    // ইউজার অ্যাপে ফিরে এসেছে
+                    let stayedTime = REQUIRED_SEC - timeLeft;
+                    msgDisplay.innerHTML = `<span style="color:#e63946; font-weight:bold; font-size:16px;">
+                        🚫 আপনি ফিরে এসেছেন!<br>
+                        আপনি ছিলেন: ${stayedTime} সেকেন্ড<br>
+                        আরও থাকতে হবে: ${timeLeft} সেকেন্ড
+                    </span>`;
                     timerCircle.classList.remove('spinning');
                 }
 
                 if (timeLeft <= 0) {
-                    clearInterval(interval);
-                    countdownActive = false;
+                    clearInterval(countdownInterval);
+                    isTrackingStarted = false;
                     localStorage.setItem('step_' + vid, currentStep + 1);
                     document.getElementById('verify-overlay').style.display = 'none';
                     renderUI();
-                    Swal.fire({ title: 'সফল!', text: 'ধাপ অটোমেটিক কাউন্ট করা হয়েছে।', icon: 'success', confirmButtonColor: '#00c853' });
+                    Swal.fire({ title: 'সফল!', text: 'ধাপ সম্পন্ন হয়েছে।', icon: 'success', confirmButtonColor: '#00c853' });
                 }
             }, 1000);
         }
