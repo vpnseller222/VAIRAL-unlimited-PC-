@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bachelor Point Season 5 - Professional Pro</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <style>
+        :root { --primary: #e63946; --secondary: #1d3557; --bg: #f0f2f5; --white: #ffffff; }
+        
+        body { 
+            background: var(--bg); color: #222; font-family: 'Segoe UI', Tahoma, sans-serif; 
+            margin: 0; padding: 0; user-select: none; -webkit-user-select: none;
+        }
+        
+        .header-section { 
+            background: linear-gradient(135deg, var(--primary), var(--secondary)); 
+            padding: 55px 20px 85px; text-align: center; color: white; 
+            border-radius: 0 0 55px 55px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+        }
+        .header-section h1 { margin: 0; font-size: 26px; text-transform: uppercase; font-weight: 900; }
+
+        .category-bar { 
+            display: flex; justify-content: center; padding: 15px; background: var(--white); 
+            margin: -40px 20px 25px; border-radius: 25px; box-shadow: 0 12px 30px rgba(0,0,0,0.1); 
+            position: sticky; top: 10px; z-index: 1000; overflow-x: auto; gap: 12px; 
+        }
+        .cat-btn { 
+            padding: 12px 25px; border-radius: 18px; border: 2px solid var(--primary); 
+            background: transparent; color: var(--primary); font-weight: bold; 
+            cursor: pointer; font-size: 14px; white-space: nowrap; transition: 0.3s; 
+        }
+        .cat-btn.active { background: var(--primary); color: white; border: none; }
+        
+        .search-container { padding: 0 25px 20px; }
+        .search-box { 
+            width: 100%; padding: 18px; border-radius: 20px; border: 2px solid #ddd; 
+            font-size: 16px; outline: none; box-sizing: border-box; background: white; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .main-content { 
+            padding: 10px 25px 40px; display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 25px; 
+        }
+        .card { 
+            background: var(--white); border-radius: 35px; overflow: hidden; 
+            box-shadow: 0 12px 28px rgba(0,0,0,0.08); text-align: center; 
+            padding-bottom: 25px; border: 1px solid #f0f0f0; transition: transform 0.3s;
+        }
+        .thumb-box { width: 100%; height: 200px; overflow: hidden; background: #eee; }
+        .thumb-box img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .card-details { padding: 20px; }
+        .video-title { margin: 0 0 15px; font-size: 19px; color: #333; height: 50px; overflow: hidden; display: flex; align-items: center; justify-content: center; line-height: 1.4; font-weight: bold; user-select: text !important; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; font-weight: 800; color: #555; }
+        
+        .unlock-btn { 
+            background: linear-gradient(135deg, var(--primary), var(--secondary)); 
+            color: white; border: none; padding: 16px; width: 90%; 
+            border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 16px; 
+            box-shadow: 0 8px 20px rgba(230, 57, 70, 0.3);
+        }
+        .download-btn { background: linear-gradient(135deg, #00c853, #007a33) !important; }
+        .locked-btn { background: #555 !important; cursor: pointer !important; }
+
+        #verify-overlay { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.96); z-index: 10000; flex-direction: column; 
+            justify-content: center; align-items: center; text-align: center; 
+        }
+        .verify-box { 
+            background: white; color: #333; padding: 50px 35px; border-radius: 40px; 
+            width: 85%; max-width: 350px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
+        }
+        .timer-circle {
+            width: 80px; height: 80px; border: 8px solid #f3f3f3; border-top: 8px solid var(--primary);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 24px; font-weight: 900; margin: 0 auto 25px; color: var(--primary);
+        }
+        .spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="verify-overlay">
+        <div class="verify-box">
+            <div id="timer-display" class="timer-circle spinning">10</div>
+            <h2 id="verify-title" style="color: var(--primary); font-weight: 900; margin-bottom: 10px;">বিজ্ঞাপন যাচাই...</h2>
+            <p id="verify-msg" style="font-size: 15px; color: #555; line-height: 1.6;">১০ সেকেন্ড অ্যাডের লিঙ্কে অবস্থান করুন। টাইমার শেষ হলে অটোমেটিক ধাপ সম্পন্ন হবে।</p>
+        </div>
+    </div>
+
+    <div class="header-section"><h1>Bachelor Point Season 5</h1></div>
+    <div class="category-bar">
+        <button class="cat-btn active" onclick="filterCat('All', this)">All 📁</button>
+        <button class="cat-btn" onclick="filterCat('BP S5', this)">BP S5 🎭</button>
+    </div>
+    <div class="search-container"><input type="number" id="videoSearch" class="search-box" placeholder="এপিসোড নাম্বার লিখে সার্চ দিন..." onkeyup="renderUI()"></div>
+    <div class="main-content" id="video-display">লোডিং হচ্ছে...</div>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://bachelor-point-season-5-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const REQUIRED_SEC = 10;
+        const LOCK_TIME = 24 * 60 * 60 * 1000;
+        const BOT_USERNAME = "Bachelor_Point_Season_5_ep_bot"; 
+
+        let allVideos = {};
+        let currentCategory = "All";
+        let countdownActive = false; // উইন্ডো ট্র্যাকিং ভেরিয়েবল
+
+        db.ref('videos').on('value', (snap) => { allVideos = snap.val() || {}; renderUI(); });
+
+        function filterCat(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderUI();
+        }
+
+        function renderUI() {
+            const container = document.getElementById('video-display');
+            const searchInput = document.getElementById('videoSearch').value.trim();
+            container.innerHTML = "";
+            for (let id in allVideos) {
+                const v = { ...allVideos[id], id: id };
+                if (currentCategory !== "All" && v.category !== currentCategory) continue;
+
+                if (searchInput !== "") {
+                    const regex = /(?:episode|ep|এপিসোড)\s*(\d+)/i;
+                    const match = v.name.match(regex);
+                    if (!match || match[1] !== searchInput) continue;
+                }
+
+                const lastTime = localStorage.getItem('time_' + id);
+                const isLocked = lastTime && (Date.now() - lastTime < LOCK_TIME);
+                let step = parseInt(localStorage.getItem('step_' + id)) || 0;
+                const total = v.ads ? v.ads.length : 0;
+                
+                let btnTxt = isLocked ? "🚫 ইনবক্স চেক করুন" : (step >= total ? "📥 GET DOWNLOAD VIDEO" : "🔒 UNLOCK VIDEO");
+                let btnClass = isLocked ? "unlock-btn locked-btn" : (step >= total ? "unlock-btn download-btn" : "unlock-btn");
+                
+                container.innerHTML += `
+                    <div class="card">
+                        <div class="thumb-box"><img src="${v.photo}"></div>
+                        <div class="card-details">
+                            <h3 class="video-title">${v.name}</h3>
+                            <div class="info-row"><span style="color:var(--primary)">ধাপ: ${isLocked ? 0 : step}/${total} 🚀</span><span>${v.category}</span></div>
+                            <button class="${btnClass}" onclick='handleAction("${id}", ${JSON.stringify(v.ads)})'>${btnTxt}</button>
+                        </div>
+                    </div>`;
+            }
+        }
+
+        function handleAction(v_id, ads) {
+            const lastTime = localStorage.getItem('time_' + v_id);
+            if (lastTime && (Date.now() - lastTime < LOCK_TIME)) {
+                Swal.fire({ title: 'ইতিমধ্যে নিয়েছেন!', text: 'ইনবক্স চেক করুন। ২৪ ঘণ্টা পর আবার ট্রাই করুন।', icon: 'warning' });
+                return;
+            }
+            let step = parseInt(localStorage.getItem('step_' + v_id)) || 0;
+            if (step >= ads.length) {
+                localStorage.setItem('time_' + v_id, Date.now());
+                window.location.href = `https://t.me/${BOT_USERNAME}?start=${v_id}`;
+                return;
+            }
+
+            document.getElementById('verify-overlay').style.display = 'flex';
+            startAutoCountdown(v_id, step);
+            setTimeout(() => { tg.openLink(ads[step]); }, 800);
+        }
+
+        function startAutoCountdown(vid, currentStep) {
+            const timerDisplay = document.getElementById('timer-display');
+            const msgDisplay = document.getElementById('verify-msg');
+            const timerCircle = document.querySelector('.timer-circle');
+            let timeLeft = REQUIRED_SEC;
+            timerDisplay.innerText = timeLeft;
+            countdownActive = true;
+
+            const interval = setInterval(() => {
+                // Focus Tracking Logic
+                if (document.hidden) {
+                    // ইউজার অন্য ট্যাবে আছে (অ্যাড দেখছে)
+                    timeLeft--;
+                    timerDisplay.innerText = timeLeft;
+                    msgDisplay.innerText = "ঠিক আছে, ১০ সেকেন্ড অ্যাডের লিঙ্কে অবস্থান করুন।";
+                    msgDisplay.style.color = "#555";
+                    timerCircle.classList.add('spinning');
+                } else {
+                    // ইউজার এই ট্যাবে ফিরে এসেছে
+                    msgDisplay.innerText = "⚠️ দয়া করে অ্যাডের লিঙ্কে ফিরে যান! নতুবা টাইমার চলবে না।";
+                    msgDisplay.style.color = "red";
+                    timerCircle.classList.remove('spinning');
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    countdownActive = false;
+                    localStorage.setItem('step_' + vid, currentStep + 1);
+                    document.getElementById('verify-overlay').style.display = 'none';
+                    renderUI();
+                    Swal.fire({ title: 'সফল!', text: 'ধাপ অটোমেটিক কাউন্ট করা হয়েছে।', icon: 'success', confirmButtonColor: '#00c853' });
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
